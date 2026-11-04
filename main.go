@@ -10,7 +10,11 @@ import (
 func main() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/", homeHandler)
+	r.HandleFunc("/", homeHandler).Methods("GET")
+	r.HandleFunc("/ak", getApiKey).Methods("GET")
+	r.HandleFunc("/ak", postApiKey).Methods("POST")
+	r.HandleFunc("/ak/{id}", putApiKey).Methods("PUT")
+	r.HandleFunc("/ak/{id}", deleteApiKey).Methods("DELETE")
 
 	fmt.Println("Listening on http://localhost:8000")
 	http.ListenAndServe(":8000", r)
