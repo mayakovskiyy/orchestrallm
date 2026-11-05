@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OrchestraLLM Dashboard</title>
+</head>
+<body>
+    <h3>OrchestraLLM Dashboard</h3>
+    <form id="apiKeyForm">
+        <p>Add an API key</p>
+        <label for="provider">API Provider</label>
+        <input type="text" id="provider" name="provider" placeholder="Provider" required>
+        <label for="api">API Key</label>
+        <input type="password" id="api" name="api" placeholder="API Key" autocomplete="off" required>
+        <button id="submitBtn" type="submit">Submit</button>
+    </form>
+    <p id="res" role="status" aria-live="polite"></p>
+    <script>
+        const form = document.getElementById('apiKeyForm');
+        const providerInput = document.getElementById('provider');
+        const keyInput = document.getElementById('api');
+        const submitBtn = document.getElementById('submitBtn');
+        const resEl = document.getElementById('res');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = providerInput.value.trim();
+            const key = keyInput.value.trim();
+            if (!name || !key) {
+                resEl.textContent = 'Enter a provider name and an API key.';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            resEl.textContent = 'Saving…';
+            try {
+                const response = await fetch('/ak', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, key })
+                });
+                if (!response.ok) {
+                    resEl.textContent = `Could not save API key (HTTP ${response.status}).`;
+                    return;
+                }
+                keyInput.value = '';
+                resEl.textContent = 'API key saved.';
+            } catch (error) {
+                resEl.textContent = `Network error: ${error.message}`;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

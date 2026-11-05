@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	// "github.com/joho/godotenv"
+	"github.com/gorilla/mux"
 	"net/http"
+	db "orchestrallm/db"
+	enc "orchestrallm/encryptions"
 	"os"
 	"strings"
 	"sync"
-
-	"github.com/gorilla/mux"
 )
 
 var aks = []ApiKey{}
@@ -38,6 +39,13 @@ func postApiKey(w http.ResponseWriter, r *http.Request) {
 	nextApiKeyID++
 	ak.ID = fmt.Sprintf("%d", nextApiKeyID)
 	aks = append(aks, ak)
+
+	ck, err := enc.Encrypt(ak.Key, gk())
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	db.SaveDataAK(ck, ak.Name)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
