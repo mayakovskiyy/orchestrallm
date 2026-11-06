@@ -18,8 +18,17 @@ var aksMu sync.RWMutex
 var nextApiKeyID uint64
 
 func getApiKey(w http.ResponseWriter, r *http.Request) {
+	var ak ApiKey
 	aksMu.RLock()
 	defer aksMu.RUnlock()
+
+	if len(aks) == 0 {
+		key, provider := db.GetDataAK()
+		ak.Key = key
+		ak.Name = provider
+		aks = append(aks, ak)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(aks)
 }
@@ -45,7 +54,11 @@ func postApiKey(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
-	db.SaveDataAK(ck, ak.Name)
+	if ck == "" {
+		return
+	}
+
+	db.SaveDataAK(ck, strings.ToUpper(ak.Name))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

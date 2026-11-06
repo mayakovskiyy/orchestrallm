@@ -36,3 +36,19 @@ func SaveDataAK(key string, provider string) {
 		fmt.Println(err)
 	}
 }
+
+func GetDataAK() (string, string) {
+	var key string
+	var provider string
+
+	err := db.QueryRow("SELECT key, provider FROM api_keys").Scan(&key, &provider)
+	if err != sql.ErrNoRows {
+		fmt.Println(err)
+	} else if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Printf("Successfully got the encrypted API key and API provider.")
+	}
+
+	return key, provider
+}

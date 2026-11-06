@@ -3,20 +3,22 @@ package main
 import (
 	//	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"net/http"
 	db "orchestrallm/db"
 	"os"
-
-	"github.com/gorilla/mux"
+	"path/filepath"
 )
 
 func main() {
+	fmt.Println("we've started...")
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	db.InitDB(homeDir)
+	fmt.Println("Opening db...")
+	db.InitDB(filepath.Join(homeDir, "orchestrallm.db"))
+	fmt.Println("DB Ready...")
 
 	r := mux.NewRouter()
 

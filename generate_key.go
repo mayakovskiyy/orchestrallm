@@ -10,7 +10,13 @@ import (
 )
 
 func gk() []byte {
-	return gkFile("/etc/orchestrallm/master.key")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	return gkFile(filepath.Join(homeDir, ".config", "orchestrallm", "master.key"))
 }
 
 func gkFile(path string) []byte {
