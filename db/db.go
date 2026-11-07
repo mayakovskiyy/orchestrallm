@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"strconv"
+	"strings"
 )
 
 var db *sql.DB
@@ -51,4 +53,13 @@ func GetDataAK() (string, string) {
 	}
 
 	return key, provider
+}
+
+func UpdateDataAK(key string, provider string, id string) {
+	cid, err := strconv.Atoi(strings.TrimSpace(id))
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	db.Exec("UPDATE api_keys SET key = ?, provider = ? WHERE id = ?;", key, provider, cid)
 }

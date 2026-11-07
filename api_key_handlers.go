@@ -87,6 +87,15 @@ func putApiKey(w http.ResponseWriter, r *http.Request) {
 		}
 		ak.ID = existing.ID
 		aks[i] = ak
+
+		ck, err := enc.Encrypt(ak.Key, gk())
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "encryption failed", http.StatusInternalServerError)
+			return
+		}
+		db.UpdateDataAK(ck, strings.ToUpper(ak.Name), existing.ID)
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(ak)
 		return
