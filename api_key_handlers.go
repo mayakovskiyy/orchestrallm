@@ -15,18 +15,27 @@ import (
 
 var aks = []ApiKey{}
 var aksMu sync.RWMutex
-var nextApiKeyID uint64
+
+// loadApiKeys is called while aksMu is locked.
+func loadApiKeys() error {
+	keys, err := db.GetDataAK()
+	if err != nil {
+		return err
+	}
+	aks = []ApiKey{}
+	for _, ak := range keys {
+		aks = append(aks, ApiKey{ID: ak.ID, Key: ak.Key, Name: ak.Name})
+	}
+	return nil
+}
 
 func getApiKey(w http.ResponseWriter, r *http.Request) {
-	var ak ApiKey
-	aksMu.RLock()
-	defer aksMu.RUnlock()
-
-	if len(aks) == 0 {
-		key, provider := db.GetDataAK()
-		ak.Key = key
-		ak.Name = provider
-		aks = append(aks, ak)
+	aksMu.Lock()
+	defer aksMu.Unlock()
+	if err := loadApiKeys(); err != nil {
+		fmt.Println(err)
+		http.Error(w, "database read failed", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -45,20 +54,20 @@ func postApiKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid environment variable name or value", http.StatusBadRequest)
 		return
 	}
-	nextApiKeyID++
-	ak.ID = fmt.Sprintf("%d", nextApiKeyID)
-	aks = append(aks, ak)
-
 	ck, err := enc.Encrypt(ak.Key, gk())
 	if err != nil {
 		fmt.Println(err)
-	}
-
-	if ck == "" {
+		http.Error(w, "encryption failed", http.StatusInternalServerError)
 		return
 	}
 
-	db.SaveDataAK(ck, strings.ToUpper(ak.Name))
+	ak.ID, err = db.SaveDataAK(ck, strings.ToUpper(ak.Name))
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "database write failed", http.StatusInternalServerError)
+		return
+	}
+	aks = append(aks, ak)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -74,6 +83,11 @@ func putApiKey(w http.ResponseWriter, r *http.Request) {
 	}
 	aksMu.Lock()
 	defer aksMu.Unlock()
+	if err := loadApiKeys(); err != nil {
+		fmt.Println(err)
+		http.Error(w, "database read failed", http.StatusInternalServerError)
+		return
+	}
 	for i, existing := range aks {
 		if existing.ID != mux.Vars(r)["id"] {
 			continue
@@ -106,9 +120,19 @@ func putApiKey(w http.ResponseWriter, r *http.Request) {
 func deleteApiKey(w http.ResponseWriter, r *http.Request) {
 	aksMu.Lock()
 	defer aksMu.Unlock()
+	if err := loadApiKeys(); err != nil {
+		fmt.Println(err)
+		http.Error(w, "database read failed", http.StatusInternalServerError)
+		return
+	}
 	for i, ak := range aks {
 		if ak.ID != mux.Vars(r)["id"] {
 			continue
+		}
+		if err := db.DeleteDataAK(ak.ID); err != nil {
+			fmt.Println(err)
+			http.Error(w, "database delete failed", http.StatusInternalServerError)
+			return
 		}
 		os.Unsetenv(strings.ToUpper(ak.Name))
 		aks = append(aks[:i], aks[i+1:]...)

@@ -32,27 +32,37 @@ func InitDB(dbPath string) {
 	}
 }
 
-func SaveDataAK(key string, provider string) {
-	_, err := db.Exec("INSERT INTO api_keys (key, provider) VALUES (?, ?)", key, provider)
+func SaveDataAK(key string, provider string) (string, error) {
+	result, err := db.Exec("INSERT INTO api_keys (key, provider) VALUES (?, ?)", key, provider)
 	if err != nil {
-		fmt.Println(err)
+		return "", err
 	}
+	id, err := result.LastInsertId()
+	return strconv.FormatInt(id, 10), err
 }
 
-func GetDataAK() (string, string) {
-	var key string
-	var provider string
+type ApiKey struct {
+	ID   string
+	Key  string
+	Name string
+}
 
-	err := db.QueryRow("SELECT key, provider FROM api_keys").Scan(&key, &provider)
-	if err != sql.ErrNoRows {
-		fmt.Println(err)
-	} else if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Successfully got the encrypted API key and API provider.")
+func GetDataAK() ([]ApiKey, error) {
+	rows, err := db.Query("SELECT id, key, provider FROM api_keys ORDER BY id")
+	if err != nil {
+		return nil, err
 	}
+	defer rows.Close()
 
-	return key, provider
+	aks := []ApiKey{}
+	for rows.Next() {
+		var ak ApiKey
+		if err := rows.Scan(&ak.ID, &ak.Key, &ak.Name); err != nil {
+			return nil, err
+		}
+		aks = append(aks, ak)
+	}
+	return aks, rows.Err()
 }
 
 func UpdateDataAK(key string, provider string, id string) {
@@ -62,4 +72,19 @@ func UpdateDataAK(key string, provider string, id string) {
 	}
 
 	db.Exec("UPDATE api_keys SET key = ?, provider = ? WHERE id = ?;", key, provider, cid)
+}
+
+func DeleteDataAK(id string) error {
+	result, err := db.Exec("DELETE FROM api_keys WHERE id = ?;", id)
+	if err != nil {
+		return err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

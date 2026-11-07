@@ -4,57 +4,73 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	db "orchestrallm/db"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/gorilla/mux"
 )
 
-func TestApiKeyLifecycle(t *testing.T) {
+func TestApiKeyDatabaseIDsAndDelete(t *testing.T) {
+	db.InitDB(filepath.Join(t.TempDir(), "keys.db"))
 	aks = []ApiKey{}
-	nextApiKeyID = 0
-	t.Cleanup(func() { aks = []ApiKey{}; nextApiKeyID = 0 })
-	t.Setenv("ORCHESTRALLM_TEST_KEY", "")
-	t.Setenv("ORCHESTRALLM_TEST_RENAMED", "")
+	t.Cleanup(func() { aks = []ApiKey{} })
+	t.Setenv("ORCHESTRALLM_TEST_KEY", "first")
+	t.Setenv("ORCHESTRALLM_TEST_SECOND", "second")
+
+	firstID, err := db.SaveDataAK("encrypted-first", "ORCHESTRALLM_TEST_KEY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondID, err := db.SaveDataAK("encrypted-second", "ORCHESTRALLM_TEST_SECOND")
+	if err != nil {
+		t.Fatal(err)
+	}
 	router := mux.NewRouter()
-	router.HandleFunc("/ak", postApiKey).Methods("POST")
-	router.HandleFunc("/ak/{id}", putApiKey).Methods("PUT")
+	router.HandleFunc("/ak", getApiKey).Methods("GET")
 	router.HandleFunc("/ak/{id}", deleteApiKey).Methods("DELETE")
-	request := func(method, path, body string, want int) *httptest.ResponseRecorder {
+	request := func(method, path string, want int) *httptest.ResponseRecorder {
 		t.Helper()
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, httptest.NewRequest(method, path, strings.NewReader(body)))
+		router.ServeHTTP(w, httptest.NewRequest(method, path, nil))
 		if w.Code != want {
 			t.Fatalf("%s %s: got %d, want %d: %s", method, path, w.Code, want, w.Body.String())
 		}
 		return w
 	}
-	request(http.MethodPost, "/ak", `{"name":"orchestrallm_test_key","key":"first"}`, http.StatusCreated)
-	request(http.MethodPut, "/ak/1", `{`, http.StatusBadRequest)
-	request(http.MethodPut, "/ak/1", `{"name":"","key":"bad"}`, http.StatusBadRequest)
-	if os.Getenv("ORCHESTRALLM_TEST_KEY") != "first" {
-		t.Fatal("invalid update changed the environment")
-	}
-	w := request(http.MethodPut, "/ak/1", `{"id":"ignored","name":"orchestrallm_test_renamed","key":"second"}`, http.StatusOK)
-	var updated ApiKey
-	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil || updated.ID != "1" {
-		t.Fatalf("update did not preserve ID: %s", w.Body.String())
-	}
+
+	// Delete must work after restart, with an empty slice and no preceding GET.
+	request(http.MethodDelete, "/ak/"+firstID, http.StatusNoContent)
 	if _, exists := os.LookupEnv("ORCHESTRALLM_TEST_KEY"); exists {
-		t.Fatal("old environment variable still exists")
-	}
-	if os.Getenv("ORCHESTRALLM_TEST_RENAMED") != "second" {
-		t.Fatal("updated environment variable is missing")
-	}
-	request(http.MethodDelete, "/ak/1", "", http.StatusNoContent)
-	if _, exists := os.LookupEnv("ORCHESTRALLM_TEST_RENAMED"); exists {
 		t.Fatal("deleted environment variable still exists")
 	}
-	request(http.MethodDelete, "/ak/1", "", http.StatusNotFound)
-	request(http.MethodPut, "/ak/1", `{}`, http.StatusNotFound)
-	request(http.MethodPost, "/ak", `{"name":"orchestrallm_test_key","key":"third"}`, http.StatusCreated)
-	if len(aks) != 1 || aks[0].ID != "2" {
-		t.Fatal("deleted ID was reused")
+	keys, err := db.GetDataAK()
+	if err != nil || len(keys) != 1 || keys[0].ID != secondID {
+		t.Fatalf("wrong database contents after deletion: %v, %v", keys, err)
+	}
+	request(http.MethodDelete, "/ak/"+firstID, http.StatusNotFound)
+
+	thirdID, err := db.SaveDataAK("encrypted-third", "ORCHESTRALLM_TEST_THIRD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if thirdID == firstID || thirdID == secondID {
+		t.Fatal("database ID was reused")
+	}
+	aks = []ApiKey{}
+	w := request(http.MethodGet, "/ak", http.StatusOK)
+	var loaded []ApiKey
+	if err := json.Unmarshal(w.Body.Bytes(), &loaded); err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded) != 2 || loaded[0].ID != secondID || loaded[1].ID != thirdID {
+		t.Fatalf("GET did not return all database IDs: %v", loaded)
+	}
+	request(http.MethodDelete, "/ak/"+secondID, http.StatusNoContent)
+	request(http.MethodDelete, "/ak/"+thirdID, http.StatusNoContent)
+	w = request(http.MethodGet, "/ak", http.StatusOK)
+	if w.Body.String() != "[]\n" {
+		t.Fatalf("empty database returned a fake record: %s", w.Body.String())
 	}
 }
