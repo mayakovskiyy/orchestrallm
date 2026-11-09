@@ -48,6 +48,7 @@ func main() {
 	r.HandleFunc("/ak", postApiKey).Methods("POST")
 	r.HandleFunc("/ak/{id}", putApiKey).Methods("PUT")
 	r.HandleFunc("/ak/{id}", deleteApiKey).Methods("DELETE")
+	r.HandleFunc("/chat", chatHandler).Methods("POST")
 
 	fmt.Println("Listening on http://localhost:8000")
 	http.ListenAndServe(":8000", r)
