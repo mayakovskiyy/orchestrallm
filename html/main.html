@@ -36,12 +36,14 @@
         loadModels();
 
         submitBtn.addEventListener('click', async () => {
-            const prompt = promptArea.value.trim();
-            if (!prompt) return;
+            const userPrompt = promptArea.value.trim();
+            if (!userPrompt) return;
+            const models = Array.from(modelSelect.options, option => option.value);
+            const prompt = "First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead. You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc.), Propmt (your direct actions and what should a model do). User prompt: " + userPrompt + " The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): " + JSON.stringify(models);
             submitBtn.disabled = true;
             responseArea.textContent = 'Waiting for response…';
             try {
-                const response = await fetch('/chat', {
+                const response = await fetch('/api/v1/orchestra/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model: modelSelect.value, prompt })

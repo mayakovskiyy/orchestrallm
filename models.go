@@ -15,5 +15,4 @@ type ModelSignal struct {
 	Model  string `json:"model"`
 	Role   string `json:"role"`
 	Prompt string `json:"prompt"`
-	From   string `json:"from"`
 }
