@@ -44,11 +44,13 @@ func main() {
 			fmt.Println(err)
 		}
 	})
-	r.HandleFunc("/ak", getApiKey).Methods("GET")
-	r.HandleFunc("/ak", postApiKey).Methods("POST")
-	r.HandleFunc("/ak/{id}", putApiKey).Methods("PUT")
-	r.HandleFunc("/ak/{id}", deleteApiKey).Methods("DELETE")
-	r.HandleFunc("/chat", chatHandler).Methods("POST")
+	r.HandleFunc("/api/v1/orchestra/ak", getApiKey).Methods("GET")
+	r.HandleFunc("/api/v1/orchestra/ak", postApiKey).Methods("POST")
+	r.HandleFunc("/api/v1/orchestra/ak/{id}", putApiKey).Methods("PUT")
+	r.HandleFunc("/api/v1/orchestra/ak/{id}", deleteApiKey).Methods("DELETE")
+	r.HandleFunc("/api/v1/orchestra/chat", chatHandler).Methods("POST")
+	r.HandleFunc("/api/v1/orchestra/signal", getSignal).Methods("GET")
+	r.HandleFunc("/api/v1/orchestra/signal", postSignal).Methods("POST")
 
 	fmt.Println("Listening on http://localhost:8000")
 	http.ListenAndServe(":8000", r)

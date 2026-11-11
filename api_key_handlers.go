@@ -16,7 +16,6 @@ import (
 var aks = []ApiKey{}
 var aksMu sync.RWMutex
 
-// loadApiKeys is called while aksMu is locked.
 func loadApiKeys() error {
 	keys, err := db.GetDataAK()
 	if err != nil {
