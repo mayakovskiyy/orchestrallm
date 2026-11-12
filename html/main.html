@@ -16,6 +16,7 @@
         const promptArea = document.getElementById("prompt");
         const modelSelect = document.getElementById("model");
         const responseArea = document.getElementById("response");
+        const testJson = `{"ID": example, "Model": "example/example", "Role": "Example", "Prompt": "Example"}`;
 
         async function loadModels() {
             try {
@@ -39,7 +40,7 @@
             const userPrompt = promptArea.value.trim();
             if (!userPrompt) return;
             const models = Array.from(modelSelect.options, option => option.value);
-            const prompt = "First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead. You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc.), Propmt (your direct actions and what should a model do). User prompt: " + userPrompt + " The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): " + JSON.stringify(models);
+            const prompt = "First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead.' You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc.), Propmt (your direct actions and what should a model do). User prompt: " + userPrompt + " The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): " + JSON.stringify(models) + " Write the JSON Request in this style: " + testJson;
             submitBtn.disabled = true;
             responseArea.textContent = 'Waiting for response…';
             try {
@@ -48,6 +49,21 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model: modelSelect.value, prompt })
                 });
+                async function sendSignalJSON() {
+                  const signal_req = await fetch('/api/v1/orchestra/signal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json;charset=utf-8' },
+                    body: response
+                  });
+
+                  if (!signal_req) {
+                    throw new Error(`Err:  ${signal_req.status}`)
+                  }
+
+                  const res = await signal_req.json();
+                  console.log('Succes! ', res);
+                }
+                
                 const text = await response.text();
                 if (!response.ok) throw new Error(text || `HTTP ${response.status}`);
                 const data = JSON.parse(text);
