@@ -35,7 +35,7 @@
             submitBtn.disabled = true;
             resEl.textContent = 'Saving…';
             try {
-                const response = await fetch('/ak', {
+                const response = await fetch('/api/v1/orchestra/ak', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, key })
