@@ -16,7 +16,7 @@
         const promptArea = document.getElementById("prompt");
         const modelSelect = document.getElementById("model");
         const responseArea = document.getElementById("response");
-        const testJson = `{"ID": example, "Model": "example/example", "Role": "Example", "Prompt": "Example"}`;
+        const testJson = `[{"id": "1", "model": "example/example", "role": "Programmer", "prompt": "Task"}, {"id": "2", "model": "other/model", "role": "Code-review", "prompt": "Review task"}]`;
 
         async function loadModels() {
             try {
@@ -40,7 +40,7 @@
             const userPrompt = promptArea.value.trim();
             if (!userPrompt) return;
             const models = Array.from(modelSelect.options, option => option.value);
-            const prompt = "First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead.' You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc.), Propmt (your direct actions and what should a model do). User prompt: " + userPrompt + " The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): " + JSON.stringify(models) + " Write the JSON Request in this style: " + testJson;
+            const prompt = "First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead.' You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. Write full technical requirements and tasks for other models, recheck your answer if you're wrong. Avoid free Google models. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter. Models SHOULDN'T REPEAT. One model tooks one role. You shouldn't make more than a one Programmer or a Code-reviewer (and other roles). If user doesn't indicate about their own roles and agents - don't use them and use only Programmer and Code-reviewer.), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc. Programmer and Code-reviewer are required.), Prompt (your direct actions and what should a model do). Just give a raw JSON as a text. DO NOT formate it as a code. User prompt: " + userPrompt + " The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): " + JSON.stringify(models) + " Return one JSON array of signals, without Markdown, in this style: " + testJson;
             submitBtn.disabled = true;
             responseArea.textContent = 'Waiting for response…';
             try {
@@ -49,26 +49,23 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model: modelSelect.value, prompt })
                 });
-                async function sendSignalJSON() {
-                  const signal_req = await fetch('/api/v1/orchestra/signal', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json;charset=utf-8' },
-                    body: response
-                  });
-
-                  if (!signal_req) {
-                    throw new Error(`Err:  ${signal_req.status}`)
-                  }
-
-                  const res = await signal_req.json();
-                  console.log('Succes! ', res);
-                }
-                
                 const text = await response.text();
                 if (!response.ok) throw new Error(text || `HTTP ${response.status}`);
                 const data = JSON.parse(text);
                 if (data.error) throw new Error(data.error.message);
-                responseArea.textContent = data.choices?.[0]?.message?.content || 'Model returned no text.';
+                const content = data.choices?.[0]?.message?.content;
+                if (!content) throw new Error('Model returned no text.');
+                responseArea.textContent = content;
+                const signals = JSON.parse(content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+                if (!Array.isArray(signals)) throw new Error('Expected a JSON array of signals.');
+                for (const signal of signals) {
+                    const signalResponse = await fetch('/api/v1/orchestra/signal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(signal)
+                    });
+                    if (!signalResponse.ok) throw new Error(await signalResponse.text() || `HTTP ${signalResponse.status}`);
+                }
             } catch (error) {
                 responseArea.textContent = error.message;
             } finally {
