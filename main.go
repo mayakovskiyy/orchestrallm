@@ -51,6 +51,7 @@ func main() {
 	r.HandleFunc("/api/v1/orchestra/chat", chatHandler).Methods("POST")
 	r.HandleFunc("/api/v1/orchestra/signal", getSignal).Methods("GET")
 	r.HandleFunc("/api/v1/orchestra/signal", postSignal).Methods("POST")
+	r.HandleFunc("/api/v1/orchestra/exec", postExec).Methods("POST")
 
 	fmt.Println("Listening on http://localhost:8000")
 	http.ListenAndServe(":8000", r)

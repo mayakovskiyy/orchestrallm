@@ -16,3 +16,10 @@ type ModelSignal struct {
 	Role   string `json:"role"`
 	Prompt string `json:"prompt"`
 }
+
+type ExecSignal struct {
+	ID     string   `json:"id"`
+	Model  string   `json:"model"`
+	Models []string `json:"models"`
+	Prompt string   `json:"prompt"`
+}

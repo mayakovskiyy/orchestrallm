@@ -11,12 +11,13 @@
         <textarea id="prompt" placeholder="Write your request here."></textarea>
         <button id="submit">Submit</button>
         <pre id="response" style="white-space: pre-wrap;"></pre>
+        <pre id="respjson" style="white-space: pre-wrap;"></pre>
         <script>
         const submitBtn = document.getElementById("submit");
         const promptArea = document.getElementById("prompt");
         const modelSelect = document.getElementById("model");
         const responseArea = document.getElementById("response");
-        const testJson = `[{"id": "1", "model": "example/example", "role": "Programmer", "prompt": "Task"}, {"id": "2", "model": "other/model", "role": "Code-review", "prompt": "Review task"}]`;
+        const respjson = document.getElementById("respjson");
 
         async function loadModels() {
             try {
@@ -39,37 +40,37 @@
         submitBtn.addEventListener('click', async () => {
             const userPrompt = promptArea.value.trim();
             if (!userPrompt) return;
-            const models = Array.from(modelSelect.options, option => option.value);
-            const prompt = "First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead.' You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. Write full technical requirements and tasks for other models, recheck your answer if you're wrong. Avoid free Google models. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter. Models SHOULDN'T REPEAT. One model tooks one role. You shouldn't make more than a one Programmer or a Code-reviewer (and other roles). If user doesn't indicate about their own roles and agents - don't use them and use only Programmer and Code-reviewer.), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc. Programmer and Code-reviewer are required.), Prompt (your direct actions and what should a model do). Just give a raw JSON as a text. DO NOT formate it as a code. User prompt: " + userPrompt + " The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): " + JSON.stringify(models) + " Return one JSON array of signals, without Markdown, in this style: " + testJson;
+            const models = [];
+            for (const option of modelSelect.options) {
+                models.push(option.value);
+            }
             submitBtn.disabled = true;
             responseArea.textContent = 'Waiting for response…';
             try {
-                const response = await fetch('/api/v1/orchestra/chat', {
+                const response = await fetch('/api/v1/orchestra/exec', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: modelSelect.value, prompt })
+                    body: JSON.stringify({ model: modelSelect.value, models: models, prompt: userPrompt })
                 });
                 const text = await response.text();
                 if (!response.ok) throw new Error(text || `HTTP ${response.status}`);
                 const data = JSON.parse(text);
-                if (data.error) throw new Error(data.error.message);
-                const content = data.choices?.[0]?.message?.content;
-                if (!content) throw new Error('Model returned no text.');
-                responseArea.textContent = content;
-                const signals = JSON.parse(content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
-                if (!Array.isArray(signals)) throw new Error('Expected a JSON array of signals.');
-                for (const signal of signals) {
-                    const signalResponse = await fetch('/api/v1/orchestra/signal', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(signal)
-                    });
-                    if (!signalResponse.ok) throw new Error(await signalResponse.text() || `HTTP ${signalResponse.status}`);
-                }
+                responseArea.textContent = JSON.stringify(data, null, 2);
+
             } catch (error) {
                 responseArea.textContent = error.message;
             } finally {
                 submitBtn.disabled = false;
+            }
+            try {
+              const signals = await fetch('/api/v1/orchestra/signal');
+              if (!signals.ok) {
+                throw new Error(`Cannot load signals: HTTP ${signals.status}`);
+              }
+              const data = await signals.json();
+              respjson.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+              respjson.textContent = error.message;
             }
         });
         </script>
