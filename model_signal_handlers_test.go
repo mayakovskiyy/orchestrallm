@@ -10,7 +10,8 @@ import (
 
 func TestSignalReadThenWrite(t *testing.T) {
 	signals = []ModelSignal{}
-	t.Cleanup(func() { signals = []ModelSignal{} })
+	sigCount = 0
+	t.Cleanup(func() { signals = []ModelSignal{}; sigCount = 0 })
 	w := httptest.NewRecorder()
 	getSignal(w, httptest.NewRequest(http.MethodGet, "/api/v1/orchestra/signal", nil))
 	if w.Body.String() != "[]\n" {
@@ -24,8 +25,12 @@ func TestSignalReadThenWrite(t *testing.T) {
 	w = httptest.NewRecorder()
 	body := `{"id":"1","model":"example/model","role":"Programmer","prompt":"Task"}`
 	postSignal(w, httptest.NewRequest(http.MethodPost, "/api/v1/orchestra/signal", strings.NewReader(body)))
-	if w.Code != http.StatusCreated {
+	// An unsupported model fails before an external request, keeping the signal pending.
+	if w.Code != http.StatusBadRequest {
 		t.Fatalf("POST returned %d: %s", w.Code, w.Body.String())
+	}
+	if sigCount != 0 {
+		t.Fatal("failed signal was marked as processed")
 	}
 	w = httptest.NewRecorder()
 	getSignal(w, httptest.NewRequest(http.MethodGet, "/api/v1/orchestra/signal", nil))

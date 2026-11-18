@@ -12,12 +12,16 @@
         <button id="submit">Submit</button>
         <pre id="response" style="white-space: pre-wrap;"></pre>
         <pre id="respjson" style="white-space: pre-wrap;"></pre>
+        <pre id="modelResponses" style="white-space: pre-wrap;"></pre>
+        <pre id="finalCode" style="white-space: pre-wrap;"></pre>
         <script>
         const submitBtn = document.getElementById("submit");
         const promptArea = document.getElementById("prompt");
         const modelSelect = document.getElementById("model");
         const responseArea = document.getElementById("response");
         const respjson = document.getElementById("respjson");
+        const modelResponses = document.getElementById("modelResponses");
+        const finalCode = document.getElementById("finalCode");
 
         async function loadModels() {
             try {
@@ -37,6 +41,19 @@
         }
         loadModels();
 
+        function showSignals(data) {
+            respjson.textContent = JSON.stringify(data, null, 2);
+            let answers = '';
+            let code = '';
+            for (const signal of data) {
+                if (!signal.response) continue;
+                answers += signal.role + ' (' + signal.model + '):\n' + signal.response + '\n\n';
+                code = signal.response.trim().replace(/^```[^\n]*\n/, '').replace(/\s*```$/, '');
+            }
+            modelResponses.textContent = answers || 'Waiting for response…';
+            finalCode.textContent = code || 'Waiting for response…';
+        }
+
         submitBtn.addEventListener('click', async () => {
             const userPrompt = promptArea.value.trim();
             if (!userPrompt) return;
@@ -46,7 +63,25 @@
             }
             submitBtn.disabled = true;
             responseArea.textContent = 'Waiting for response…';
+            respjson.textContent = 'Waiting for response…';
+            modelResponses.textContent = 'Waiting for response…';
+            finalCode.textContent = 'Waiting for response…';
+            let timer;
+            let waiting = true;
             try {
+                const initial = await fetch('/api/v1/orchestra/signal');
+                if (!initial.ok) throw new Error(`Cannot load signals: HTTP ${initial.status}`);
+                const previous = await initial.json();
+                timer = setInterval(async () => {
+                    try {
+                        const response = await fetch('/api/v1/orchestra/signal');
+                        if (!response.ok) throw new Error(`Cannot load signals: HTTP ${response.status}`);
+                        const data = await response.json();
+                        if (waiting) showSignals(data.slice(previous.length));
+                    } catch (error) {
+                        if (waiting) respjson.textContent = error.message;
+                    }
+                }, 1000);
                 const response = await fetch('/api/v1/orchestra/exec', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -56,21 +91,19 @@
                 if (!response.ok) throw new Error(text || `HTTP ${response.status}`);
                 const data = JSON.parse(text);
                 responseArea.textContent = JSON.stringify(data, null, 2);
+                waiting = false;
+                showSignals(data);
 
             } catch (error) {
                 responseArea.textContent = error.message;
+                respjson.textContent = error.message;
+                modelResponses.textContent = error.message;
+                finalCode.textContent = error.message;
+                return;
             } finally {
+                waiting = false;
+                clearInterval(timer);
                 submitBtn.disabled = false;
-            }
-            try {
-              const signals = await fetch('/api/v1/orchestra/signal');
-              if (!signals.ok) {
-                throw new Error(`Cannot load signals: HTTP ${signals.status}`);
-              }
-              const data = await signals.json();
-              respjson.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-              respjson.textContent = error.message;
             }
         });
         </script>

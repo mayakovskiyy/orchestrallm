@@ -11,10 +11,11 @@ type ApiKey struct {
 }
 
 type ModelSignal struct {
-	ID     string `json:"id"`
-	Model  string `json:"model"`
-	Role   string `json:"role"`
-	Prompt string `json:"prompt"`
+	ID       string `json:"id"`
+	Model    string `json:"model"`
+	Role     string `json:"role"`
+	Prompt   string `json:"prompt"`
+	Response string `json:"response,omitempty"`
 }
 
 type ExecSignal struct {

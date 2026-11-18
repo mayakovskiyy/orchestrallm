@@ -20,7 +20,7 @@ func postExec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	testJson := `[{"id": "1", "model": "example/example", "role": "Programmer", "prompt": "Task"}, {"id": "2", "model": "other/model", "role": "Code-review", "prompt": "Review task"}]`
-	prompt := fmt.Sprintf("First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead.' You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. Write full technical requirements and tasks for other models, recheck your answer if you're wrong. Avoid free Google models. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter. Models SHOULDN'T REPEAT. One model tooks one role. You shouldn't make more than a one Programmer or a Code-reviewer (and other roles). If user doesn't indicate about their own roles and agents - don't use them and use only Programmer and Code-reviewer.), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc. Programmer and Code-reviewer are required.), Prompt (your direct actions and what should a model do. Indicate their role in the text.). Just give a raw JSON as a text. DO NOT formate it as code. User prompt: %s The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): %s Return one JSON array of signals, without Markdown, in this style: %s", signal.Prompt, models, testJson)
+	prompt := fmt.Sprintf("First of all: DON'T WRITE ANY TEXT OUT FROM THE JSON REQUEST YOU'LL WRITE (DO NOT. WRITE THE ONLY JSON REQUEST.). Answer like a professional Team Lead.' You have a list of the models and you should: A) Pick a codder-model B) Pick a code-review model. Write full technical requirements and tasks for other models, recheck your answer if you're wrong. Avoid free Google models. And also your answer should be based on JSON value signal and contain: ID (ID IS A FIELD. 1, 2, 3 etc.), Model (indicated in an array, also choose the name of the model from OpenRouter. Models SHOULDN'T REPEAT. One model tooks one role. You shouldn't make more than a one Programmer or a Code-reviewer (and other roles). Code-reviewer should fix the code and return an already fixed code. If user doesn't indicate about their own roles and agents - don't use them and use only Programmer and Code-reviewer.), Role (If the model is a programmer write 'Programmer'; 'Code-review' etc. Programmer and Code-reviewer are required.), Prompt (your direct actions and what should a model do. Indicate their role in the text.). Just give a raw JSON as a text. DO NOT formate it as code. User prompt: %s The array of the available models (The field in JSON shouldn't be an array. Just an ordinary string-field): %s Return one JSON array of signals, without Markdown, in this style: %s", signal.Prompt, models, testJson)
 	response := requestChat(w, r, signal.Model, prompt)
 	if response == nil {
 		return
@@ -48,12 +48,7 @@ func postExec(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
-	signalMu.Lock()
-	signals = append(signals, parsed...)
-	signalMu.Unlock()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(parsed)
+	runSignals(w, r, parsed)
 }
 
 func parseExecSignals(content string) ([]ModelSignal, error) {
