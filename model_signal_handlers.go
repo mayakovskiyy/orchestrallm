@@ -69,6 +69,9 @@ func runSignals(w http.ResponseWriter, r *http.Request, incoming []ModelSignal) 
 			http.Error(w, "model returned no answer", http.StatusBadGateway)
 			return
 		}
+
+		if
+
 		pending[i].Response = result.Choices[0].Message.Content
 		signalMu.Lock()
 		signals[i].Response = pending[i].Response
